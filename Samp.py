@@ -1,5 +1,6 @@
 import requests
 import json
+import issues_modular
 def create_issues(ACCESS_TOKEN,OWNER,REPO,title,body,labels):
     headers = {
     'Authorization': f'token {ACCESS_TOKEN}',
@@ -29,6 +30,11 @@ def create_issues(ACCESS_TOKEN,OWNER,REPO,title,body,labels):
 ACCESS_TOKEN = ''
 OWNER = ''
 REPO = ''
+CODE = ''''''
+issues_modular.predict(CODE)
+
+
+
 body='The new issue raised is confirmed'
 title='Title-1'
 labels=['bug', 'high-priority']

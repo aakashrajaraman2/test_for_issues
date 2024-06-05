@@ -221,8 +221,13 @@ def setup_memory():
 
 
 def predict(input):
+    gcp_region = 'us-east-1'
+    modelId = 'anthropic.claude-3-sonnet-20240229-v1:0'
+    google = AnthropicVertex(region=gcp_region, project_id="figma-code-fixer")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="cred.json"
     llm = ChatVertexAI(model_id=modelId, client=google, max_output_tokens = 2048)
-    conv = ConversationChain(llm=llm, memory=setup_memory(), verbose=False, prompt = issues_prompt)
+    mem = setup_memory()
+    conv = ConversationChain(llm=llm, memory=mem, verbose=False, prompt = issues_prompt)
     return conv.predict(input)
 
 test = '''
@@ -236,7 +241,7 @@ def factorial(number):
   return factorial
 '''
 
-
+print(predict(test))
 
 
 
