@@ -13,4 +13,5 @@ def factorial(number):
   return factorial
 '''
 
-print(issues_modular.predict(example))
+brain=issues_modular.create_brain()
+print(brain.predict(example))
