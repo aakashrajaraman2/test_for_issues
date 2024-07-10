@@ -8,6 +8,10 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationChain
 from langchain_community.chat_models.bedrock import BedrockChat
 from anthropic import AnthropicVertex
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import PromptTemplate
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain.schema.runnable import RunnablePassthrough
 
 gcp_region = 'us-east-1'
 modelId = 'anthropic.claude-3-sonnet-20240229-v1:0'
@@ -27,17 +31,22 @@ The description of the issue must have:
 3. Cascading effects of the issue.
 4. fixes of the issue.
 
-All of this information must be described in a short, readable format with the key headers through out the body.
+All of this information must be described in a dictionary with the keys being the sections, and the values being the description of the sections.
 
 Generate the title after creating the body of the issue.
 
 Finally, based on the information and the title, generate three to four labels that are relevant to the code.
 
+Formatting Instructions: {format_instructions}
+
 If there are no prospective issues, and the code is in good working conditions, say so. Do not be overly critical, and only create issues that are relevant and impactful.
 If the code follows all conventions, and has a good structure without bugs and issues, keep the body of the issue short or empty.
 
-
+History: 
 {history}
+
+
+Formatting 
 Current Conversation:
 
 Code: {input}
@@ -65,7 +74,7 @@ order_total = calculate_order_total(order_items)
 print(f"Order total: ${order_total:.2f}")
 ''',
 "output": '''
-Title: lack of coverage for discounts, edge cases, and negative price.
+{"Title": "lack of coverage for discounts, edge cases, and negative price.
 
 Description: The calculate_order_total function appears to be calculating the total price of items in an order. However, there might be an issue with how it handles potential discounts or negative prices.
 
@@ -127,7 +136,7 @@ def github_push_and_pull(github_token, repo_url, git_branch, file_path, file_con
 ''',
      "output": '''
 
-Title: Lack of error handling in Except Block.     
+{Title: Lack of error handling in Except Block.     
 
 Description: The github_push_and_pull function automates pushing and pulling code changes to a GitHub repository. However, there might be a potential logic error in how it handles existing files.
 
@@ -148,6 +157,7 @@ Move the update logic for the existing file out of the try block.
 If the update fails, handle the exception and potentially retry the update or provide a more informative error message.
 Alternatively, consider refactoring the logic to check the update success before attempting to create a new file.
 Labels: bug, python
+    }
 '''}, 
 {"input": '''
 import nltk
@@ -155,10 +165,6 @@ import nltk
 nltk.download('punkt')  # Download tokenizer if not already installed
 
 def summarize_text(text, max_length=100):
-  """
-  Summarizes a given text using sentence extraction.
-
-  """
 
   if max_length <= 0:
     raise ValueError("Maximum summary length must be greater than zero.")
@@ -202,29 +208,45 @@ This code accounts for all possible edges. It has excellent flow of control, dat
 '''}
 ]
 
+class outputDict(BaseModel):
+    Title: str = Field(description="Title of the Issue")
+    Description: str = Field(description="Primary description of the Issue")
+    Behavior: dict = Field(description="Dictionary of the Current Behavior and Expected Behavior")
+    Solution: str = Field(description="Provided Solution for the issue")
+
+
+parser = JsonOutputParser(pydantic_object=outputDict)
 issues_prompt= PromptTemplate(
     input_variables = ["input", "history"],
-    template=template
+    template=template,
+    partial_variables={"format_instructions": parser.get_format_instructions()},
 )
 
 def setup_memory():
-    example_memory = ConversationBufferMemory(human_prefix="Code", ai_prefix="GitHub Issue")
-
-
+    example_memory = ConversationBufferMemory(human_prefix="Code", ai_prefix="GitHub Issue", memory_key="conversation")
     for example in examples:
         example_memory.save_context({"Code:": example["input"]}, {"Github Issue":example["output"]})
 
     return example_memory
 
 
-
+class outputDict(BaseModel):
+    Title: str = Field(description="Title of the Issue")
+    Description: str = Field(description="Primary description of the Issue")
+    Behavior: dict = Field(description="Dictionary of the Current Behavior and Expected Behavior")
+    Solution: str = Field(description="Provided Solution for the issue")
+    
 
 
 def create_brain():
     
     llm = ChatVertexAI(model_id=modelId, client=google, max_output_tokens = 2048)
     mem = setup_memory()
-    conv = ConversationChain(llm=llm, memory=mem, verbose=False, prompt = issues_prompt)
+    
+   #print(type(mem.load_memory_variables({})))
+    
+    #conv = ConversationChain(llm=llm, memory=mem, verbose=False, prompt = issues_prompt)
+    conv = ( {"input": RunnablePassthrough(),"history": lambda _:mem.load_memory_variables({})["conversation"]}| issues_prompt | llm | parser)
     
     return conv
 
@@ -235,11 +257,11 @@ def factorial(number):
     return "Factorial is not defined for negative numbers"
   factorial = 1
   for i in range(1, number + 1):
-    factorial *= i
+    factorial -= i
   return factorial
 '''
-
-
+a = create_brain()
+print(a.invoke({"input": test}))
 
 
 
